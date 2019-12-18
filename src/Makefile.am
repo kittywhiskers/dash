@@ -261,6 +261,7 @@ BITCOIN_CORE_H = \
   utilmemory.h \
   utilmoneystr.h \
   utiltime.h \
+  utilasmap.h \
   validation.h \
   validationinterface.h \
   versionbits.h \
@@ -581,6 +582,7 @@ libdash_util_a_SOURCES = \
   utilmoneystr.cpp \
   utilstrencodings.cpp \
   utiltime.cpp \
+  utilasmap.cpp \
   $(BITCOIN_CORE_H)
 
 if GLIBC_BACK_COMPAT
