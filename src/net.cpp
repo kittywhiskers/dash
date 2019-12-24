@@ -762,12 +762,13 @@ std::string CNode::GetLogString() const
 
 #undef X
 #define X(name) stats.name = name
-void CNode::copyStats(CNodeStats &stats)
+void CNode::copyStats(CNodeStats &stats, std::vector<bool> &m_asmap)
 {
     stats.nodeid = this->GetId();
     X(nServices);
     X(addr);
     X(addrBind);
+    stats.m_mapped_as = addr.GetMappedAS(m_asmap);
     {
         LOCK(cs_filter);
         X(fRelayTxes);
@@ -3616,7 +3617,7 @@ void CConnman::GetNodeStats(std::vector<CNodeStats>& vstats)
             continue;
         }
         vstats.emplace_back();
-        pnode->copyStats(vstats.back());
+        pnode->copyStats(vstats.back(), addrman.m_asmap);
     }
 }
 
