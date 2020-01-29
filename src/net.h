@@ -1115,7 +1115,7 @@ public:
 
     void CloseSocketDisconnect(CConnman* connman);
 
-    void copyStats(CNodeStats &stats, std::vector<bool> &m_asmap);
+    void copyStats(CNodeStats &stats, const std::vector<bool> &m_asmap);
 
     ServiceFlags GetLocalServices() const
     {
