@@ -504,7 +504,7 @@ static inline Wrapper<Formatter, T&> Using(T&& t) { return Wrapper<Formatter, T&
 #define FIXEDVARINTSBITSET(obj, size) CFixedVarIntsBitSet(REF(obj), (size))
 #define AUTOBITSET(obj, size) CAutoBitSet(REF(obj), (size))
 #define VARINT(obj, ...) Using<VarIntFormatter<__VA_ARGS__>>(obj)
-#define COMPACTSIZE(obj) CCompactSize(REF(obj))
+#define COMPACTSIZE(obj) Using<CompactSizeFormatter>(obj)
 #define LIMITED_STRING(obj,n) LimitedString< n >(REF(obj))
 
 class CFixedBitSet
@@ -712,25 +712,26 @@ public:
     }
 };
 
-class CCompactSize
+/** Formatter for integers in CompactSize format. */
+struct CompactSizeFormatter
 {
-protected:
-    uint64_t &n;
-public:
-    explicit CCompactSize(uint64_t& nIn) : n(nIn) { }
-
-    unsigned int GetSerializeSize() const {
-        return GetSizeOfCompactSize(n);
+    template<typename Stream, typename I>
+    void Unser(Stream& s, I& v)
+    {
+        uint64_t n = ReadCompactSize<Stream>(s);
+        if (n < std::numeric_limits<I>::min() || n > std::numeric_limits<I>::max()) {
+            throw std::ios_base::failure("CompactSize exceeds limit of type");
+        }
+        v = n;
     }
 
-    template<typename Stream>
-    void Serialize(Stream &s) const {
-        WriteCompactSize<Stream>(s, n);
-    }
+    template<typename Stream, typename I>
+    void Ser(Stream& s, I v)
+    {
+        static_assert(std::is_unsigned<I>::value, "CompactSize only supported for unsigned integers");
+        static_assert(std::numeric_limits<I>::max() <= std::numeric_limits<uint64_t>::max(), "CompactSize only supports 64-bit integers and below");
 
-    template<typename Stream>
-    void Unserialize(Stream& s) {
-        n = ReadCompactSize<Stream>(s);
+        WriteCompactSize<Stream>(s, v);
     }
 };
 
