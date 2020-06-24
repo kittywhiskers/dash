@@ -3947,7 +3947,7 @@ public:
         UniValue obj(UniValue::VOBJ);
         CPubKey vchPubKey;
         if (pwallet && pwallet->GetPubKey(keyID, vchPubKey)) {
-            obj.pushKV("pubkey", HexStr(vchPubKey));
+            obj.pushKV("pubkey", HexStr(std::vector<uint8_t>(vchPubKey.begin(), vchPubKey.end())));
             obj.pushKV("iscompressed", vchPubKey.IsCompressed());
         }
         return obj;
