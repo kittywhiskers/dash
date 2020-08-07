@@ -282,9 +282,9 @@ enum Network CNetAddr::GetNetwork() const
 std::string CNetAddr::ToStringIP(bool fUseGetnameinfo) const
 {
     if (IsTor())
-        return EncodeBase32(&ip[6], 10) + ".onion";
+        return EncodeBase32(ip) + ".onion";
     if (IsInternal())
-        return EncodeBase32(ip + sizeof(g_internal_prefix), sizeof(ip) - sizeof(g_internal_prefix)) + ".internal";
+        return EncodeBase32(ip) + ".internal";
     if (fUseGetnameinfo)
     {
         CService serv(*this, 0);
