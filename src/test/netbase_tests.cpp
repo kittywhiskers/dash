@@ -183,6 +183,7 @@ BOOST_AUTO_TEST_CASE(subnet_test)
     BOOST_CHECK(!ResolveSubNet("1.2.3.0/-1").IsValid());
     BOOST_CHECK(ResolveSubNet("1.2.3.0/32").IsValid());
     BOOST_CHECK(!ResolveSubNet("1.2.3.0/33").IsValid());
+    BOOST_CHECK(!ResolveSubNet("1.2.3.0/300").IsValid());
     BOOST_CHECK(ResolveSubNet("1:2:3:4:5:6:7:8/0").IsValid());
     BOOST_CHECK(ResolveSubNet("1:2:3:4:5:6:7:8/33").IsValid());
     BOOST_CHECK(!ResolveSubNet("1:2:3:4:5:6:7:8/-1").IsValid());
@@ -214,6 +215,11 @@ BOOST_AUTO_TEST_CASE(subnet_test)
     BOOST_CHECK(CSubNet(ResolveIP("1:2:3:4:5:6:7:8")).Match(ResolveIP("1:2:3:4:5:6:7:8")));
     BOOST_CHECK(!CSubNet(ResolveIP("1:2:3:4:5:6:7:8")).Match(ResolveIP("1:2:3:4:5:6:7:9")));
     BOOST_CHECK(CSubNet(ResolveIP("1:2:3:4:5:6:7:8")).ToString() == "1:2:3:4:5:6:7:8/128");
+    // IPv4 address with IPv6 netmask or the other way around.
+    BOOST_CHECK(!CSubNet(ResolveIP("1.1.1.1"), ResolveIP("ffff::")).IsValid());
+    BOOST_CHECK(!CSubNet(ResolveIP("::1"), ResolveIP("255.0.0.0")).IsValid());
+    // Can't subnet TOR (or any other non-IPv4 and non-IPv6 network).
+    BOOST_CHECK(!CSubNet(ResolveIP("5wyqrzbvrdsumnok.onion"), ResolveIP("255.0.0.0")).IsValid());
 
     subnet = ResolveSubNet("1.2.3.4/255.255.255.255");
     BOOST_CHECK_EQUAL(subnet.ToString(), "1.2.3.4/32");
@@ -316,6 +322,43 @@ BOOST_AUTO_TEST_CASE(netbase_getgroup)
     // baz.net sha256 hash: 12929400eb4607c4ac075f087167e75286b179c693eb059a01774b864e8fe505
     std::vector<unsigned char> internal_group = {NET_INTERNAL, 0x12, 0x92, 0x94, 0x00, 0xeb, 0x46, 0x07, 0xc4, 0xac, 0x07};
     BOOST_CHECK(CreateInternal("baz.net").GetGroup(asmap) == internal_group);
+}
+
+BOOST_AUTO_TEST_CASE(netbase_parsenetwork)
+{
+    BOOST_CHECK_EQUAL(ParseNetwork("ipv4"), NET_IPV4);
+    BOOST_CHECK_EQUAL(ParseNetwork("ipv6"), NET_IPV6);
+    BOOST_CHECK_EQUAL(ParseNetwork("onion"), NET_ONION);
+    BOOST_CHECK_EQUAL(ParseNetwork("tor"), NET_ONION);
+
+    BOOST_CHECK_EQUAL(ParseNetwork("IPv4"), NET_IPV4);
+    BOOST_CHECK_EQUAL(ParseNetwork("IPv6"), NET_IPV6);
+    BOOST_CHECK_EQUAL(ParseNetwork("ONION"), NET_ONION);
+    BOOST_CHECK_EQUAL(ParseNetwork("TOR"), NET_ONION);
+
+    BOOST_CHECK_EQUAL(ParseNetwork(":)"), NET_UNROUTABLE);
+    BOOST_CHECK_EQUAL(ParseNetwork("tÖr"), NET_UNROUTABLE);
+    BOOST_CHECK_EQUAL(ParseNetwork("\xfe\xff"), NET_UNROUTABLE);
+    BOOST_CHECK_EQUAL(ParseNetwork(""), NET_UNROUTABLE);
+}
+
+BOOST_AUTO_TEST_CASE(netbase_dont_resolve_strings_with_embedded_nul_characters)
+{
+    CNetAddr addr;
+    BOOST_CHECK(LookupHost(std::string("127.0.0.1", 9).c_str(), addr, false));
+    BOOST_CHECK(!LookupHost(std::string("127.0.0.1\0", 10).c_str(), addr, false));
+    BOOST_CHECK(!LookupHost(std::string("127.0.0.1\0example.com", 21).c_str(), addr, false));
+    BOOST_CHECK(!LookupHost(std::string("127.0.0.1\0example.com\0", 22).c_str(), addr, false));
+    CSubNet ret;
+    BOOST_CHECK(LookupSubNet(std::string("1.2.3.0/24", 10).c_str(), ret));
+    BOOST_CHECK(!LookupSubNet(std::string("1.2.3.0/24\0", 11).c_str(), ret));
+    BOOST_CHECK(!LookupSubNet(std::string("1.2.3.0/24\0example.com", 22).c_str(), ret));
+    BOOST_CHECK(!LookupSubNet(std::string("1.2.3.0/24\0example.com\0", 23).c_str(), ret));
+    // We only do subnetting for IPv4 and IPv6
+    BOOST_CHECK(!LookupSubNet(std::string("5wyqrzbvrdsumnok.onion", 22).c_str(), ret));
+    BOOST_CHECK(!LookupSubNet(std::string("5wyqrzbvrdsumnok.onion\0", 23).c_str(), ret));
+    BOOST_CHECK(!LookupSubNet(std::string("5wyqrzbvrdsumnok.onion\0example.com", 34).c_str(), ret));
+    BOOST_CHECK(!LookupSubNet(std::string("5wyqrzbvrdsumnok.onion\0example.com\0", 35).c_str(), ret));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
