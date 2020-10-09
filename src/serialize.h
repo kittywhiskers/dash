@@ -27,7 +27,11 @@
 #include <prevector.h>
 #include <span.h>
 
-static const unsigned int MAX_SIZE = 0x02000000;
+/**
+ * The maximum size of a serialized object in bytes or number of elements
+ * (for eg vectors) when the size is encoded as CompactSize.
+ */
+static constexpr uint64_t MAX_SIZE = 0x02000000;
 
 /**
  * Dummy data type to identify deserializing constructors.
@@ -290,8 +294,14 @@ void WriteCompactSize(Stream& os, uint64_t nSize)
     return;
 }
 
+/**
+ * Decode a CompactSize-encoded variable-length integer.
+ *
+ * As these are primarily used to encode the size of vector-like serializations, by default a range
+ * check is performed. When used as a generic number encoding, range_check should be set to false.
+ */
 template<typename Stream>
-uint64_t ReadCompactSize(Stream& is)
+uint64_t ReadCompactSize(Stream& is, bool range_check = true)
 {
     uint8_t chSize = ser_readdata8(is);
     uint64_t nSizeRet = 0;
@@ -317,8 +327,9 @@ uint64_t ReadCompactSize(Stream& is)
         if (nSizeRet < 0x100000000ULL)
             throw std::ios_base::failure("non-canonical ReadCompactSize()");
     }
-    if (nSizeRet > (uint64_t)MAX_SIZE)
+    if (range_check && nSizeRet > MAX_SIZE) {
         throw std::ios_base::failure("ReadCompactSize(): size too large");
+    }
     return nSizeRet;
 }
 
@@ -429,7 +440,7 @@ I ReadVarInt(Stream& is)
 #define FIXEDVARINTSBITSET(obj, size) CFixedVarIntsBitSet(REF(obj), (size))
 #define AUTOBITSET(obj, size) CAutoBitSet(REF(obj), (size))
 #define VARINT(obj, ...) WrapVarInt<__VA_ARGS__>(REF(obj))
-#define COMPACTSIZE(obj) Using<CompactSizeFormatter>(obj)
+#define COMPACTSIZE(obj) Using<CompactSizeFormatter<true>>(obj)
 #define LIMITED_STRING(obj,n) LimitedString< n >(REF(obj))
 
 class CFixedBitSet
@@ -642,12 +653,13 @@ public:
 };
 
 /** Formatter for integers in CompactSize format. */
+template<bool RangeCheck>
 struct CompactSizeFormatter
 {
     template<typename Stream, typename I>
     void Unser(Stream& s, I& v)
     {
-        uint64_t n = ReadCompactSize<Stream>(s);
+        uint64_t n = ReadCompactSize<Stream>(s, RangeCheck);
         if (n < std::numeric_limits<I>::min() || n > std::numeric_limits<I>::max()) {
             throw std::ios_base::failure("CompactSize exceeds limit of type");
         }
