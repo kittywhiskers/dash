@@ -817,7 +817,7 @@ UniValue getblockheader(const JSONRPCRequest& request)
     {
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
         ssBlock << pblockindex->GetBlockHeader();
-        std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
+        std::string strHex = HexStr(ssBlock);
         return strHex;
     }
 
@@ -895,7 +895,7 @@ UniValue getblockheaders(const JSONRPCRequest& request)
         {
             CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
             ssBlock << pblockindex->GetBlockHeader();
-            std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
+            std::string strHex = HexStr(ssBlock);
             arrHeaders.push_back(strHex);
             if (--nCount <= 0)
                 break;
@@ -1088,7 +1088,7 @@ UniValue getblock(const JSONRPCRequest& request)
     {
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
         ssBlock << block;
-        std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
+        std::string strHex = HexStr(ssBlock);
         return strHex;
     }
 
