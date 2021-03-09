@@ -44,6 +44,7 @@
 #include <ui_interface.h>
 #include <util.h>
 #include <utilmoneystr.h>
+#include <utilasmap.h>
 #include <validationinterface.h>
 
 #include <masternode/activemasternode.h>
@@ -136,6 +137,7 @@ static CDSNotificationInterface* pdsNotificationInterface = nullptr;
 #endif
 
 static const char* FEE_ESTIMATES_FILENAME="fee_estimates.dat";
+static const char* DEFAULT_ASMAP_FILENAME="ip_asn.map";
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -523,6 +525,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageGroup(_("Connection options:"));
     strUsage += HelpMessageOpt("-addnode=<ip>", _("Add a node to connect to and attempt to keep the connection open (see the `addnode` RPC command help for more info). This option can be specified multiple times to add multiple nodes."));
     strUsage += HelpMessageOpt("-allowprivatenet", strprintf(_("Allow RFC1918 addresses to be relayed and connected to (default: %u)"), DEFAULT_ALLOWPRIVATENET));
+    strUsage += HelpMessageOpt("-asmap=<file>", strprintf(_("Specify asn mapping used for bucketing of the peers (default: %s). Relative paths will be prefixed by the net-specific datadir location."), DEFAULT_ASMAP_FILENAME));
     strUsage += HelpMessageOpt("-banscore=<n>", strprintf(_("Threshold for disconnecting misbehaving peers (default: %u)"), DEFAULT_BANSCORE_THRESHOLD));
     strUsage += HelpMessageOpt("-bantime=<n>", strprintf(_("Number of seconds to keep misbehaving peers from reconnecting (default: %u)"), DEFAULT_MISBEHAVING_BANTIME));
     strUsage += HelpMessageOpt("-bind=<addr>", _("Bind to given address and always listen on it. Use [host]:port notation for IPv6"));
@@ -553,6 +556,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-timeout=<n>", strprintf(_("Specify connection timeout in milliseconds (minimum: 1, default: %d)"), DEFAULT_CONNECT_TIMEOUT));
     strUsage += HelpMessageOpt("-torcontrol=<ip>:<port>", strprintf(_("Tor control port to use if onion listening enabled (default: %s)"), DEFAULT_TOR_CONTROL));
     strUsage += HelpMessageOpt("-torpassword=<pass>", _("Tor control port password (default: empty)"));
+
 #ifdef USE_UPNP
 #if USE_UPNP
     strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));
@@ -1924,6 +1928,31 @@ bool AppInitMain()
             AddLocal(addrLocal, LOCAL_MANUAL);
         else
             return InitError(ResolveErrMsg("externalip", strAddr));
+    }
+
+    // Read asmap file if configured
+    if (gArgs.IsArgSet("-asmap")) {
+        fs::path asmap_path = fs::path(gArgs.GetArg("-asmap", ""));
+        if (asmap_path.empty()) {
+            asmap_path = DEFAULT_ASMAP_FILENAME;
+        }
+        if (!asmap_path.is_absolute()) {
+            asmap_path = GetDataDir() / asmap_path;
+        }
+        if (!fs::exists(asmap_path)) {
+            InitError(strprintf(_("Could not find asmap file %s"), asmap_path));
+            return false;
+        }
+        std::vector<bool> asmap = CAddrMan::DecodeAsmap(asmap_path);
+        if (asmap.size() == 0) {
+            InitError(strprintf(_("Could not parse asmap file %s"), asmap_path));
+            return false;
+        }
+        const uint256 asmap_version = SerializeHash(asmap);
+        g_connman->SetAsmap(std::move(asmap));
+        LogPrintf("Using asmap version %s for IP bucketing\n", asmap_version.ToString());
+    } else {
+        LogPrintf("Using /16 prefix for IP bucketing\n");
     }
 
 #if ENABLE_ZMQ
