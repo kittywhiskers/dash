@@ -93,6 +93,7 @@ BASE_SCRIPTS= [
     'rpc_txoutproof.py',
     'wallet_listreceivedby.py',
     'wallet_abandonconflict.py',
+    'feature_asmap.py',
     'feature_csv_activation.py',
     'rpc_rawtransaction.py',
     'feature_reindex.py',
